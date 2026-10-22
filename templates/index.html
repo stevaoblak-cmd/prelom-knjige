@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="sr-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prelom knjige</title>
+<style>
+  :root { --bg:#f4f2ee; --panel:#fff; --line:#ddd8cf; --ink:#222; --muted:#6b665d; --accent:#8a3b12; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.4 system-ui, "Segoe UI", sans-serif; color:var(--ink); background:var(--bg); }
+  header { display:flex; align-items:center; gap:12px; padding:10px 16px; background:#2b2622; color:#fff; flex-wrap:wrap; }
+  header h1 { font-size:17px; margin:0 12px 0 0; font-weight:600; }
+  header .sp { flex:1; }
+  button, .btn { font:inherit; padding:7px 14px; border-radius:6px; border:1px solid #bbb; background:#fff; color:#222; cursor:pointer; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  button:disabled { opacity:.5; cursor:wait; }
+  main { display:grid; grid-template-columns: minmax(300px,1.1fr) 330px minmax(320px,1.3fr); gap:12px; padding:12px; height:calc(100vh - 54px); }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; display:flex; flex-direction:column; min-height:0; }
+  .panel h2 { font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:0; padding:10px 12px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:8px; }
+  .panel h2 .sp { flex:1; }
+  textarea { flex:1; border:0; resize:none; padding:12px; font:14px/1.5 "Cascadia Mono", Consolas, monospace; outline:none; min-height:300px; }
+  .help { font-size:12px; color:var(--muted); padding:8px 12px; border-top:1px solid var(--line); }
+  .help code { background:#f1ede6; padding:0 3px; border-radius:3px; }
+  .settings { overflow:auto; padding:4px 12px 12px; }
+  fieldset { border:0; border-top:1px solid var(--line); margin:8px 0 0; padding:8px 0 0; }
+  legend { font-weight:600; padding:0 4px 0 0; color:var(--accent); }
+  label { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:6px 0; }
+  label span { flex:1; }
+  input[type=number] { width:76px; }
+  input[type=text], select { width:170px; }
+  input, select { font:inherit; padding:3px 5px; border:1px solid #c9c3b8; border-radius:4px; }
+  .check { justify-content:flex-start; }
+  .check input { margin:0; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:0 12px; }
+  .row2 label input { width:60px; }
+  iframe { flex:1; border:0; width:100%; background:#888; border-radius:0 0 8px 8px; }
+  #status { font-size:13px; color:#f0d9c8; }
+  .empty { flex:1; display:flex; align-items:center; justify-content:center; color:var(--muted); text-align:center; padding:20px; }
+  .hidden { display:none !important; }
+  @media (max-width: 1100px) { main { grid-template-columns:1fr; height:auto; } iframe{min-height:80vh;} }
+</style>
+</head>
+<body>
+<header>
+  <h1>Prelom knjige</h1>
+  <label class="btn" style="margin:0">Uvezi Word / PDF<input id="file" type="file" accept=".docx,.pdf,.txt,.md" hidden></label>
+  <button id="saveProject" title="Sačuvaj tekst i podešavanja u datoteku">Sačuvaj projekat</button>
+  <label class="btn" style="margin:0">Otvori projekat<input id="openProject" type="file" accept=".json" hidden></label>
+  <span class="sp"></span>
+  <span id="status"></span>
+  <button id="render" class="primary">Napravi prelom</button>
+  <button id="download" disabled>Preuzmi PDF</button>
+</header>
+<main>
+  <section class="panel">
+    <h2>Tekst <span class="sp"></span><small id="stats"></small></h2>
+    <textarea id="text" spellcheck="false" placeholder="Uvezite Word ili PDF datoteku, ili ovde nalepite tekst..."></textarea>
+    <div class="help">
+      <code># Naslov</code> poglavlje &nbsp; <code>## Podnaslov</code> &nbsp; <code>*kurziv*</code> &nbsp; <code>**podebljano**</code> &nbsp;
+      <code>* * *</code> razmak scena &nbsp; <code>&gt; citat</code> &nbsp; <code>[nova strana]</code> &nbsp; <code>[prazna strana]</code> &nbsp; <code>[neparna strana]</code>.
+      Pasuse odvojite praznim redom.
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Podešavanja</h2>
+    <form id="settings" class="settings" onsubmit="return false">
+      <fieldset><legend>Knjiga</legend>
+        <label><span>Naslov</span><input type="text" name="title"></label>
+        <label><span>Autor</span><input type="text" name="author"></label>
+        <label class="check"><input type="checkbox" name="title_page"><span>Naslovna strana</span></label>
+        <label><span>Sadržaj</span><select name="toc"><option value="none">bez sadržaja</option><option value="start">na početku</option><option value="end">na kraju</option></select></label>
+      </fieldset>
+
+      <fieldset><legend>Format strane</legend>
+        <label><span>Format</span><select name="page_size">{% for p in page_sizes %}<option>{{ p }}</option>{% endfor %}</select></label>
+        <div class="row2" id="customSize">
+          <label><span>Širina mm</span><input type="number" name="page_width" step="1"></label>
+          <label><span>Visina mm</span><input type="number" name="page_height" step="1"></label>
+        </div>
+      </fieldset>
+
+      <fieldset><legend>Margine (mm)</legend>
+        <div class="row2">
+          <label><span>Gore</span><input type="number" name="margin_top" step="0.5"></label>
+          <label><span>Dole</span><input type="number" name="margin_bottom" step="0.5"></label>
+          <label title="Margina uz povez (riknu)"><span>Unutra</span><input type="number" name="margin_inner" step="0.5"></label>
+          <label><span>Spolja</span><input type="number" name="margin_outer" step="0.5"></label>
+        </div>
+      </fieldset>
+
+      <fieldset><legend>Slova i prored</legend>
+        <label><span>Font teksta</span><select name="font_family" class="fontsel"></select></label>
+        <label><span>Font naslova</span><select name="heading_font_family" class="fontsel" data-empty="isti kao tekst"></select></label>
+        <label><span>Dodaj svoj font (.ttf/.otf)</span><input id="fontUpload" type="file" accept=".ttf,.otf" style="width:120px"></label>
+        <label><span>Veličina slova (pt)</span><input type="number" name="font_size" step="0.25"></label>
+        <label><span>Prored (× veličina)</span><input type="number" name="line_height" step="0.05"></label>
+        <label><span>Uvlaka pasusa (mm)</span><input type="number" name="paragraph_indent" step="0.5"></label>
+        <label><span>Razmak između pasusa (mm)</span><input type="number" name="paragraph_spacing" step="0.5"></label>
+        <label class="check"><input type="checkbox" name="justify"><span>Obostrano poravnanje</span></label>
+        <label class="check"><input type="checkbox" name="hyphenate"><span>Automatsko deljenje reči</span></label>
+        <label><span>Jezik / pismo</span><select name="language"><option value="auto">automatski</option><option value="sr">srpski (ćirilica)</option><option value="sr-Latn">srpski (latinica)</option><option value="hr">hrvatski</option><option value="en">engleski</option></select></label>
+        <label title="Najmanji broj redova pasusa koji ostaje sam na dnu ili vrhu strane"><span>Udovice / siročići (redova)</span><input type="number" name="widows_orphans" min="1" max="5"></label>
+      </fieldset>
+
+      <fieldset><legend>Poglavlja</legend>
+        <label><span>Poglavlje počinje</span><select name="chapter_start"><option value="odd">na neparnoj strani (dodaje praznu)</option><option value="any">na novoj strani</option><option value="none">odmah, bez nove strane</option></select></label>
+        <label><span>Spuštanje naslova (mm)</span><input type="number" name="chapter_drop" step="1"></label>
+        <label><span>Veličina naslova (pt)</span><input type="number" name="chapter_heading_size" step="0.5"></label>
+        <label class="check"><input type="checkbox" name="chapter_number_pages"><span>Broj strane na početku poglavlja</span></label>
+      </fieldset>
+
+      <fieldset><legend>Paginacija i zaglavlje</legend>
+        <label><span>Broj strane</span><select name="page_numbers"><option value="outer">dole, spoljna ivica</option><option value="center">dole, sredina</option><option value="none">bez broja</option></select></label>
+        <label class="check"><input type="checkbox" name="running_header"><span>Živa glava (naslov knjige / poglavlja)</span></label>
+        <label><span>Prvi broj strane</span><input type="number" name="first_page_number" step="1"></label>
+      </fieldset>
+
+      <fieldset><legend>Za štampariju</legend>
+        <label title="Dodaje prazne strane na kraju tako da ukupan broj strana bude deljiv sa ovim brojem (tabaci)"><span>Broj strana deljiv sa</span><select name="pages_multiple"><option value="1">bez dopune</option><option value="2">2</option><option value="4">4</option><option value="8">8</option><option value="16">16 (tabak)</option><option value="32">32</option></select></label>
+        <label class="check"><input type="checkbox" name="crop_marks"><span>Oznake za sečenje</span></label>
+        <label><span>Prepust / bleed (mm)</span><input type="number" name="bleed" step="0.5"></label>
+      </fieldset>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Pregled <span class="sp"></span><small id="pages"></small></h2>
+    <div id="empty" class="empty">Kliknite „Napravi prelom” da vidite kako će knjiga izgledati.</div>
+    <iframe id="preview" class="hidden" title="Pregled PDF-a"></iframe>
+  </section>
+</main>
+
+<script>
+const DEFAULTS = {{ defaults|tojson }};
+const form = document.getElementById('settings');
+const text = document.getElementById('text');
+const statusEl = document.getElementById('status');
+let pdfUrl = null;
+
+function setStatus(msg) { statusEl.textContent = msg || ''; }
+
+function readSettings() {
+  const s = {};
+  for (const el of form.elements) {
+    if (!el.name) continue;
+    s[el.name] = el.type === 'checkbox' ? el.checked : el.value;
+  }
+  return s;
+}
+function writeSettings(s) {
+  for (const el of form.elements) {
+    if (!el.name || !(el.name in s)) continue;
+    if (el.type === 'checkbox') el.checked = !!s[el.name];
+    else el.value = s[el.name];
+  }
+  toggleCustom();
+}
+function toggleCustom() {
+  document.getElementById('customSize').classList.toggle('hidden', form.page_size.value !== 'Prilagođeno');
+}
+form.page_size.addEventListener('change', toggleCustom);
+
+async function loadFonts(list) {
+  if (!list) list = await (await fetch('/api/fonts')).json();
+  for (const sel of document.querySelectorAll('.fontsel')) {
+    const cur = sel.value;
+    sel.innerHTML = '';
+    if (sel.dataset.empty) sel.add(new Option(sel.dataset.empty, ''));
+    for (const f of list) sel.add(new Option(f, f));
+    if (cur) sel.value = cur;
+  }
+}
+
+function save() {
+  try { localStorage.setItem('prelom', JSON.stringify({ text: text.value, settings: readSettings() })); } catch (e) {}
+  updateStats();
+}
+function updateStats() {
+  const words = (text.value.match(/\S+/g) || []).length;
+  const chapters = (text.value.match(/^# /gm) || []).length;
+  document.getElementById('stats').textContent = words ? `${words.toLocaleString('sr')} reči, ${chapters} poglavlja` : '';
+}
+text.addEventListener('input', save);
+form.addEventListener('change', save);
+
+document.getElementById('file').addEventListener('change', async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  if (text.value.trim() && !confirm('Zameniti postojeći tekst uvezenim?')) { e.target.value = ''; return; }
+  setStatus('Uvozim ' + f.name + '...');
+  const fd = new FormData(); fd.append('file', f);
+  const r = await fetch('/api/import', { method: 'POST', body: fd });
+  const j = await r.json();
+  e.target.value = '';
+  if (!r.ok) { setStatus(''); alert(j.error); return; }
+  text.value = j.text;
+  if (!form.title.value) form.title.value = f.name.replace(/\.[^.]+$/, '');
+  save();
+  setStatus('Uvezeno. Proverite naslove poglavlja (redovi sa #).');
+});
+
+document.getElementById('fontUpload').addEventListener('change', async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const fd = new FormData(); fd.append('file', f);
+  const r = await fetch('/api/fonts', { method: 'POST', body: fd });
+  const j = await r.json();
+  if (!r.ok) { alert(j.error); return; }
+  await loadFonts(j);
+  setStatus('Font dodat: ' + f.name);
+  e.target.value = '';
+});
+
+const renderBtn = document.getElementById('render');
+const downloadBtn = document.getElementById('download');
+renderBtn.addEventListener('click', async () => {
+  renderBtn.disabled = true; setStatus('Pravim prelom...');
+  try {
+    const r = await fetch('/api/render', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text.value, settings: readSettings() }) });
+    if (!r.ok) { const j = await r.json(); alert(j.error); setStatus(''); return; }
+    const blob = await r.blob();
+    if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+    pdfUrl = URL.createObjectURL(blob);
+    const frame = document.getElementById('preview');
+    frame.src = pdfUrl; frame.classList.remove('hidden');
+    document.getElementById('empty').classList.add('hidden');
+    const added = +r.headers.get('X-Added-Blank');
+    document.getElementById('pages').textContent = r.headers.get('X-Pages') + ' strana' + (added ? ` (+${added} praznih na kraju)` : '');
+    downloadBtn.disabled = false;
+    setStatus('Gotovo.');
+  } catch (e) { alert(e); setStatus(''); }
+  finally { renderBtn.disabled = false; }
+});
+downloadBtn.addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.href = pdfUrl; a.download = (form.title.value || 'knjiga') + ' - prelom.pdf'; a.click();
+});
+
+document.getElementById('saveProject').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify({ text: text.value, settings: readSettings() }, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = (form.title.value || 'knjiga') + '.prelom.json'; a.click();
+});
+document.getElementById('openProject').addEventListener('change', async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  try { const j = JSON.parse(await f.text()); text.value = j.text || ''; writeSettings({ ...DEFAULTS, ...j.settings }); save(); }
+  catch (err) { alert('Neispravna datoteka projekta.'); }
+  e.target.value = '';
+});
+
+(async () => {
+  await loadFonts();
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem('prelom')); } catch (e) {}
+  writeSettings({ ...DEFAULTS, ...(saved && saved.settings) });
+  if (saved && saved.text) text.value = saved.text;
+  updateStats();
+})();
+</script>
+</body>
+</html>

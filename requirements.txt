@@ -1,0 +1,7 @@
+flask>=3.0
+weasyprint>=62
+pyphen>=0.14
+python-docx>=1.1
+pymupdf>=1.24
+pypdf>=4.0
+fonttools>=4.40
