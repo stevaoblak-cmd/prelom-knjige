@@ -1,3 +1,9 @@
 __pycache__/
 .venv/
 *.pyc
+build/gtk/
+dist/
+build/PrelomKnjige/
+*.pdf
+!primeri/primer_prelom.pdf
+LOCAL_APPDATA_FONTCONFIG_CACHE/

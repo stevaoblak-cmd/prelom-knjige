@@ -1,0 +1,73 @@
+name: Windows instaler
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pango i Cairo (MSYS2)
+        id: msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: false
+          install: mingw-w64-ucrt-x86_64-pango
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python biblioteke
+        run: pip install -r requirements.txt pywebview pyinstaller
+
+      - name: Kopiranje DLL-ova
+        shell: pwsh
+        run: |
+          $bin = Join-Path "${{ steps.msys2.outputs.msys2-location }}" "ucrt64\bin"
+          New-Item -ItemType Directory -Force build\gtk | Out-Null
+          Copy-Item "$bin\*.dll" build\gtk\
+          Copy-Item build\fonts.conf build\gtk\
+
+      - name: Provera preloma (izvorni kod)
+        shell: pwsh
+        run: |
+          $env:WEASYPRINT_DLL_DIRECTORIES = (Resolve-Path build\gtk).Path
+          $env:FONTCONFIG_FILE = (Resolve-Path build\gtk\fonts.conf).Path
+          python desktop.py --test-render proba-izvorni.pdf
+
+      - name: PyInstaller
+        run: pyinstaller --noconfirm build/prelom.spec
+
+      - name: Provera zapakovanog programa
+        shell: pwsh
+        run: |
+          $p = Start-Process dist\PrelomKnjige\PrelomKnjige.exe -ArgumentList "--test-render", "$PWD\proba.pdf" -Wait -PassThru
+          if ($p.ExitCode -ne 0 -or -not (Test-Path proba.pdf)) { throw "Zapakovani program nije napravio PDF" }
+
+      - name: Inno Setup instaler
+        shell: pwsh
+        run: |
+          $ver = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}".TrimStart("v") } else { "0.1.${{ github.run_number }}" }
+          choco upgrade innosetup -y --no-progress
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=$ver" build\installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC nije uspeo" }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PrelomKnjige-instaler
+          path: |
+            dist/PrelomKnjige-instaler-*.exe
+            proba.pdf
+
+      - name: Objavljivanje (samo za oznake v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/PrelomKnjige-instaler-*.exe

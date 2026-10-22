@@ -7,9 +7,10 @@ from flask import Flask, jsonify, render_template, request, Response
 from werkzeug.utils import secure_filename
 
 from prelom.importers import import_file
-from prelom.layout import FONTS_DIR, PAGE_SIZES, Settings, available_fonts, render_pdf
+from prelom.layout import PAGE_SIZES, Settings, available_fonts, render_pdf
+from prelom.paths import FONTS_DIR, TEMPLATES_DIR
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder=TEMPLATES_DIR)
 app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024
 
 

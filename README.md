@@ -35,7 +35,20 @@ podesite format i dobijete PDF spreman za štampariju.
 ```
 Pasusi se razdvajaju praznim redom.
 
-## Pokretanje
+## Windows instaler
+
+Instaler (`PrelomKnjige-instaler-x.y.z.exe`) se pravi automatski na GitHub-u
+(`.github/workflows/windows-instaler.yml`) na svaki push na `main`; gotov instaler
+se preuzima sa stranice **Actions** → poslednje pokretanje → *Artifacts*.
+Za oznaku `v1.0.0` instaler se objavljuje i kao Release.
+
+Instaler ne traži administratorska prava, pravi prečicu na radnoj površini i u Start meniju,
+i sadrži sve potrebne biblioteke (Pango, Cairo, fontove Liberation). Program se otvara u
+sopstvenom prozoru. Fontovi koje korisnik doda čuvaju se u `%APPDATA%\PrelomKnjige\fonts`.
+
+Fajlovi za pakovanje su u folderu `build/` (PyInstaller spec, Inno Setup skripta, ikona, fonts.conf).
+
+## Pokretanje iz izvornog koda
 
 Potreban je Python 3.10+.
 
@@ -53,3 +66,4 @@ Program se otvara u pregledaču na adresi http://127.0.0.1:5000
 - `prelom/importers.py` – uvoz Word / PDF / TXT
 - `prelom/layout.py` – podešavanja, prelom zapis → HTML/CSS → PDF (WeasyPrint)
 - `app.py`, `templates/index.html` – interfejs
+- `desktop.py` – pokretanje u sopstvenom prozoru (Windows program)

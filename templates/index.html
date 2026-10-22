@@ -140,6 +140,20 @@ let pdfUrl = null;
 
 function setStatus(msg) { statusEl.textContent = msg || ''; }
 
+// Čuvanje datoteke: u Windows programu otvara dijalog "Sačuvaj kao", u pregledaču preuzima.
+async function saveBlob(blob, filename) {
+  if (window.pywebview && window.pywebview.api && window.pywebview.api.save_file) {
+    const b64 = await new Promise((res) => {
+      const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.readAsDataURL(blob);
+    });
+    const path = await window.pywebview.api.save_file(filename, b64);
+    if (path) setStatus('Sačuvano: ' + path);
+    return;
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+}
+let pdfBlob = null;
+
 function readSettings() {
   const s = {};
   for (const el of form.elements) {
@@ -219,6 +233,7 @@ renderBtn.addEventListener('click', async () => {
       body: JSON.stringify({ text: text.value, settings: readSettings() }) });
     if (!r.ok) { const j = await r.json(); alert(j.error); setStatus(''); return; }
     const blob = await r.blob();
+    pdfBlob = blob;
     if (pdfUrl) URL.revokeObjectURL(pdfUrl);
     pdfUrl = URL.createObjectURL(blob);
     const frame = document.getElementById('preview');
@@ -231,15 +246,11 @@ renderBtn.addEventListener('click', async () => {
   } catch (e) { alert(e); setStatus(''); }
   finally { renderBtn.disabled = false; }
 });
-downloadBtn.addEventListener('click', () => {
-  const a = document.createElement('a');
-  a.href = pdfUrl; a.download = (form.title.value || 'knjiga') + ' - prelom.pdf'; a.click();
-});
+downloadBtn.addEventListener('click', () => saveBlob(pdfBlob, (form.title.value || 'knjiga') + ' - prelom.pdf'));
 
 document.getElementById('saveProject').addEventListener('click', () => {
   const blob = new Blob([JSON.stringify({ text: text.value, settings: readSettings() }, null, 1)], { type: 'application/json' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = (form.title.value || 'knjiga') + '.prelom.json'; a.click();
+  saveBlob(blob, (form.title.value || 'knjiga') + '.prelom.json');
 });
 document.getElementById('openProject').addEventListener('change', async (e) => {
   const f = e.target.files[0]; if (!f) return;

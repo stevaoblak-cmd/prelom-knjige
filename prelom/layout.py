@@ -2,9 +2,12 @@
 import html
 import io
 import os
+import pathlib
 import re
 import subprocess
 from dataclasses import dataclass, asdict, fields
+
+from .paths import BUNDLED_FONTS_DIR, FONTS_DIR, setup_native_libs
 
 PAGE_SIZES = {
     "A4 (210 × 297 mm)": (210, 297),
@@ -90,20 +93,29 @@ class Settings:
 
 # --------------------------------------------------------------- fontovi
 
-FONTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "fonts")
+_family_cache = {}
+
+
+def _fonts_in(folder):
+    """{ime familije: [putanje]} za .ttf/.otf fontove u folderu."""
+    result = {}
+    if not os.path.isdir(folder):
+        return result
+    for name in sorted(os.listdir(folder)):
+        if not name.lower().endswith((".ttf", ".otf")):
+            continue
+        path = os.path.join(folder, name)
+        if path not in _family_cache:
+            _family_cache[path] = _font_family_name(path) or os.path.splitext(name)[0]
+        result.setdefault(_family_cache[path], []).append(path)
+    return result
 
 
 def user_fonts():
-    """Fontovi ubačeni u folder fonts/ -> {ime familije: [putanje]}."""
-    result = {}
-    if not os.path.isdir(FONTS_DIR):
-        return result
-    for name in sorted(os.listdir(FONTS_DIR)):
-        if not name.lower().endswith((".ttf", ".otf")):
-            continue
-        path = os.path.join(FONTS_DIR, name)
-        family = _font_family_name(path) or os.path.splitext(name)[0]
-        result.setdefault(family, []).append(path)
+    """Ugrađeni fontovi programa + fontovi koje je korisnik dodao."""
+    result = _fonts_in(BUNDLED_FONTS_DIR)
+    for fam, paths in _fonts_in(FONTS_DIR).items():
+        result.setdefault(fam, []).extend(paths)
     return result
 
 
@@ -132,6 +144,12 @@ def _font_style(path):
 
 
 def system_fonts():
+    if os.name == "nt":
+        fams = set()
+        for folder in (os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts"),
+                       os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "Windows", "Fonts")):
+            fams.update(_fonts_in(folder))
+        return sorted(f for f in fams if "emoji" not in f.lower())
     try:
         out = subprocess.run(["fc-list", ":", "family"], capture_output=True, text=True,
                              timeout=10).stdout
@@ -154,7 +172,7 @@ def _font_face_css():
     for family, paths in user_fonts().items():
         for path in paths:
             weight, italic = _font_style(path)
-            url = "file://" + path.replace("\\", "/") if not path.startswith("/") else "file://" + path
+            url = pathlib.Path(path).resolve().as_uri()
             css.append(
                 f'@font-face {{ font-family: "{family}"; src: url("{url}"); '
                 f'font-weight: {weight}; font-style: {"italic" if italic else "normal"}; }}'
@@ -430,6 +448,7 @@ section.toc a::after {{ content: leader('.') target-counter(attr(href), page); }
 
 def render_pdf(markup, settings: Settings):
     """Vraća (pdf_bajtovi, broj_strana, dodatih_praznih)."""
+    setup_native_libs()
     import weasyprint
     from pypdf import PdfReader, PdfWriter
     from pypdf.generic import NameObject

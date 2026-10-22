@@ -5,3 +5,4 @@ python-docx>=1.1
 pymupdf>=1.24
 pypdf>=4.0
 fonttools>=4.40
+pywebview>=5.0; sys_platform == "win32"
