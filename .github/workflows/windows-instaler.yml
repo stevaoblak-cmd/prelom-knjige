@@ -69,8 +69,13 @@ jobs:
             dist/PrelomKnjige-instaler-*.exe
             proba.pdf
 
-      - name: Objavljivanje (samo za oznake v*)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Objavljivanje (Releases)
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('v0.1.{0}', github.run_number) }}
+          name: Prelom knjige ${{ github.ref_type == 'tag' && github.ref_name || format('0.1.{0}', github.run_number) }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          body: Preuzmite PrelomKnjige-instaler-….exe ispod i pokrenite ga.
           files: dist/PrelomKnjige-instaler-*.exe

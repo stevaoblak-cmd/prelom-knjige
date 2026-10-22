@@ -40,7 +40,7 @@ Pasusi se razdvajaju praznim redom.
 Instaler (`PrelomKnjige-instaler-x.y.z.exe`) se pravi automatski na GitHub-u
 (`.github/workflows/windows-instaler.yml`) na svaki push na `main`; gotov instaler
 se preuzima sa stranice **Actions** → poslednje pokretanje → *Artifacts*.
-Za oznaku `v1.0.0` instaler se objavljuje i kao Release.
+Svaka izrada se objavljuje i na stranici **Releases** repozitorijuma.
 
 Instaler ne traži administratorska prava, pravi prečicu na radnoj površini i u Start meniju,
 i sadrži sve potrebne biblioteke (Pango, Cairo, fontove Liberation). Program se otvara u
