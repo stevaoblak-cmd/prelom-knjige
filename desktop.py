@@ -46,7 +46,12 @@ def test_render(out_path):
     pdf, pages, _ = render_pdf(text, Settings(title="Проба", toc="start"))
     with open(out_path, "wb") as f:
         f.write(pdf)
-    print(f"OK: {pages} strana -> {out_path}")
+    # uvoz PDF-a: napravljeni prelom se ponovo uvozi i moraju se naći poglavlja
+    back = import_file(out_path)
+    chapters = back.count("\n# ") + back.startswith("# ")
+    if chapters < 3:
+        raise SystemExit(f"Uvoz PDF-a nije prepoznao poglavlja ({chapters})")
+    print(f"OK: {pages} strana, PDF uvoz: {chapters} naslova -> {out_path}")
 
 
 def _redirect_output():
