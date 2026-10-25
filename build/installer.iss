@@ -16,6 +16,11 @@ OutputDir=..\dist
 OutputBaseFilename=PrelomKnjige-instaler-{#AppVersion}
 SetupIconFile=ikona.ico
 UninstallDisplayIcon={app}\PrelomKnjige.exe
+; program otvoren -> instaler traži da se zatvori; CloseApplications ga zatvara sam
+AppMutex=PrelomKnjigeMutex
+CloseApplications=force
+CloseApplicationsFilter=*.exe,*.dll,*.pyd
+RestartApplications=no
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -38,3 +43,24 @@ Name: "{autodesktop}\Prelom knjige"; Filename: "{app}\PrelomKnjige.exe"; Tasks: 
 
 [Run]
 Filename: "{app}\PrelomKnjige.exe"; Description: "{cm:LaunchProgram,Prelom knjige}"; Flags: nowait postinstall skipifsilent
+
+[Code]
+// Ako je stari program ostao u pozadini (bez prozora), ugasi ga pre kopiranja datoteka.
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  ResultCode: Integer;
+begin
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /T /IM PrelomKnjige.exe', '', SW_HIDE,
+       ewWaitUntilTerminated, ResultCode);
+  Sleep(500);
+  Result := '';
+end;
+
+function InitializeUninstall(): Boolean;
+var
+  ResultCode: Integer;
+begin
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /T /IM PrelomKnjige.exe', '', SW_HIDE,
+       ewWaitUntilTerminated, ResultCode);
+  Result := True;
+end;

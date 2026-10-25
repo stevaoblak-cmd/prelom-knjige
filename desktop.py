@@ -65,6 +65,15 @@ def _redirect_output():
         sys.stderr = sys.stderr or log
 
 
+def _app_mutex():
+    """Windows mutex po kome instaler prepoznaje da je program otvoren (AppMutex)."""
+    if os.name == "nt":
+        import ctypes
+
+        return ctypes.windll.kernel32.CreateMutexW(None, False, "PrelomKnjigeMutex")
+    return None
+
+
 def main():
     _redirect_output()
     if len(sys.argv) > 2 and sys.argv[1] == "--test-render":
@@ -88,7 +97,10 @@ def main():
     api = Api()
     api.window = webview.create_window("Prelom knjige", url, js_api=api,
                                        width=1400, height=900, min_size=(900, 600))
+    mutex = _app_mutex()  # noqa: F841 - drži se otvoren dok program radi
     webview.start()
+    # prozor je zatvoren: ugasi i server, da proces ne ostane u pozadini
+    os._exit(0)
 
 
 if __name__ == "__main__":
